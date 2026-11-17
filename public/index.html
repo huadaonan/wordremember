@@ -84,7 +84,7 @@ textarea{min-height:220px;line-height:1.6}
 </section>
 
 <section class="screen" id="game">
-  <div class="hud"><button class="btn ghost small" id="quit">← 退出</button><span id="hLives"></span><span id="hCoins"></span><span class="sp"></span><span id="hWave"></span></div>
+  <div class="hud"><button class="btn ghost small" id="quit">← 退出</button><span id="hLives"></span><span id="hCoins"></span><button class="btn small" id="ultBtn" style="padding:4px 10px;font-size:13px" disabled>🌟 0%</button><span class="sp"></span><span id="hWave"></span></div>
   <div id="fieldWrap"><canvas id="cv"></canvas><div class="over" id="over" hidden></div></div>
   <div class="build"><button data-t="a" class="on">🏹30</button><button data-t="f">❄️40</button><button data-t="r">🔥50</button><button data-t="l">⚡60</button><button data-t="b">🎈60</button><button data-t="p">☠️50</button></div>
   <div class="quiz"><div class="q" id="q"></div><div id="ans"></div><div class="fb" id="fb"></div></div>
@@ -366,11 +366,11 @@ function startRun(id){
   if(id!=="_due"){const o=ch.words;ws.sort((a,b)=>o.indexOf(a)-o.indexOf(b))}
   const waves=[];for(let i=0;i<ws.length;i+=4)waves.push(ws.slice(i,i+4));
   if(waves.length>1&&waves[waves.length-1].length<2)waves[waves.length-2].push(...waves.pop());
-  G={ch,waves,wi:-1,phase:"brief",lives:10+petStage(),coins:60+petStage()*10,s0:petStage(),gain:0,petCharge:0,en:[],tw:SLOTS.map(()=>null),shots:[],fl:[],left:0,spT:0,items:[],qn:0,cur:null,last:null,lock:false,right:0,wrong:0,missed:new Set(),run:true,pool:ws};
+  G={ch,waves,wi:-1,phase:"brief",lives:10+petStage(),coins:60+petStage()*10,s0:petStage(),gain:0,petCharge:0,combo:0,ult:0,flash:0,en:[],tw:SLOTS.map(()=>null),shots:[],fl:[],left:0,spT:0,items:[],qn:0,cur:null,last:null,lock:false,right:0,wrong:0,missed:new Set(),run:true,pool:ws};
   show("game");resize();$("fb").textContent="";nextWave();
   let last=performance.now();const me=G;(function loop(now){if(!me.run||G!==me)return;const dt=Math.min(.05,(now-last)/1000);last=now;tick(dt);draw();requestAnimationFrame(loop)})(last);
 }
-function hud(){$("hLives").textContent="❤️ "+G.lives;$("hCoins").textContent="🪙 "+G.coins;$("hWave").textContent="第 "+(G.wi+1)+"/"+G.waves.length+" 波"}
+function hud(){$("hLives").textContent="❤️ "+G.lives;$("hCoins").textContent="🪙 "+G.coins;$("hWave").textContent="第 "+(G.wi+1)+"/"+G.waves.length+" 波";const u=$("ultBtn"),r=G.ult>=100;u.disabled=!r;u.textContent=r?"🌟 放圣光!":"🌟 "+G.ult+"%";u.className="btn small"+(r?"":" ghost")}
 function cards(ws){return `<div class="wgrid">${ws.map(w=>`<button class="w" data-en="${esc(w.en)}"><span class="en">${esc(w.en)}</span><span>${esc(w.zh)}</span></button>`).join("")}</div>`}
 $("over").addEventListener("click",e=>{const b=e.target.closest("[data-en]");if(b)speak(b.dataset.en)});
 function nextWave(){
@@ -413,14 +413,27 @@ $("ans").addEventListener("click",e=>{
 });
 function resolve(good){
   G.lock=true;const it=G.cur,w=it.w,me=G;
-  if(good){G.right++;sfx.ok();st.e+=1+G.type;G.gain+=1+G.type;const gain=[5,6,7,12][G.type];G.coins+=gain;it.lvl=Math.min(3,it.lvl+1);it.due=G.qn+[3,4,6,9][it.lvl];bolt(40+G.wi*12);
+  if(good){G.right++;G.combo++;const pitch=Math.min(1.5,1+G.combo*0.06);beep(660*pitch,.1,"triangle");setTimeout(()=>beep(990*pitch,.14,"triangle"),80);
+    st.e+=1+G.type;G.gain+=1+G.type;const base=[5,6,7,12][G.type],bonus=G.combo>=3?Math.min(10,G.combo):0,gain=base+bonus;G.coins+=gain;
+    G.ult=Math.min(100,G.ult+20+(G.combo>=3?5:0));
+    it.lvl=Math.min(3,it.lvl+1);it.due=G.qn+[3,4,6,9][it.lvl];bolt(40+G.wi*12);
     const s=petStage(),need=s>=4?2:3;
     if(s>0){G.petCharge++;if(G.petCharge>=need){G.petCharge=0;petAssist(s)}}
-    $("fb").innerHTML=`<span style="color:var(--mint)">✔ +${gain}🪙 ⚡</span>　<b class="en">${esc(w.en)}</b> ${esc(w.zh)}`;if(G.type>=2)speak(w.en)}
-  else{G.wrong++;sfx.bad();G.missed.add(w.en);it.lvl=Math.max(0,it.lvl-1);it.due=G.qn+2;
+    const cTag=G.combo>=2?` <span style="color:var(--lamp)">🔥x${G.combo}</span>`:"";
+    $("fb").innerHTML=`<span style="color:var(--mint)">✔ +${gain}🪙 ⚡</span>${cTag}　<b class="en">${esc(w.en)}</b> ${esc(w.zh)}`;if(G.type>=2)speak(w.en)}
+  else{G.wrong++;G.combo=0;sfx.bad();G.missed.add(w.en);it.lvl=Math.max(0,it.lvl-1);it.due=G.qn+2;
     $("fb").innerHTML=`<span style="color:var(--coral)">记住：</span><b class="en" style="color:var(--lamp);font-size:20px">${esc(w.en)}</b> = ${esc(w.zh)}`;speak(w.en)}
   hud();setTimeout(()=>{if(G===me)nextQ()},good?800:2400);
 }
+function castUlt(){
+  if(!G||G.phase!=="play"||G.ult<100)return;
+  G.ult=0;G.flash=.45;
+  G.en.forEach(e=>{if(e.dead)return;const p=posAt(e.d);e.slow=Math.max(e.slow,3);G.shots.push({x1:p[0],y1:0,x2:p[0],y2:p[1],t:.4,col:"#ffc24a",w:6});hit(e,e.max*.6,true)});
+  G.fl.push({x:W/2,y:H*.4,s:"🌟 词灯圣光！全屏斩杀+冰冻",t:1.6});
+  [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.18,"triangle",.08),i*70));
+  hud();
+}
+$("ultBtn").onclick=castUlt;
 function petAssist(s){
   const end=P[P.length-1],px=end[0]-36,py=end[1]-2,cnt=1+Math.floor(s/2);
   const targets=G.en.filter(x=>!x.dead).sort((a,b)=>b.d-a.d).slice(0,cnt);
@@ -465,6 +478,7 @@ function draw(){
     ctx.fillStyle="#0008";ctx.fillRect(p[0]-16,p[1]+15,32,4);ctx.fillStyle="#5fe0b7";ctx.fillRect(p[0]-16,p[1]+15,32*Math.max(0,e.hp/e.max),4);
     ctx.font='bold 14px "Baloo 2",sans-serif';const tw=ctx.measureText(e.w.en).width+12,lx=Math.min(W-tw/2-2,Math.max(tw/2+2,p[0]));ctx.fillStyle="#fff6e0";ctx.beginPath();ctx.roundRect?ctx.roundRect(lx-tw/2,p[1]-34,tw,18,8):ctx.rect(lx-tw/2,p[1]-34,tw,18);ctx.fill();ctx.fillStyle="#241d4d";ctx.fillText(e.w.en,lx,p[1]-24)}
   ctx.font='bold 14px "Baloo 2",system-ui,sans-serif';for(const f of G.fl){ctx.globalAlpha=Math.min(1,f.t);ctx.fillStyle="#ffc24a";ctx.fillText(f.s,Math.min(W-70,Math.max(70,f.x)),f.y-10)}ctx.globalAlpha=1;
+  if(G.flash>0){G.flash=Math.max(0,G.flash-.02);ctx.fillStyle=`rgba(255,194,74,${G.flash})`;ctx.fillRect(0,0,W,H)}
 }
 cv.addEventListener("click",e=>{
   if(!G||G.phase!=="play")return;const r=cv.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
