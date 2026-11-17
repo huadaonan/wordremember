@@ -319,16 +319,18 @@ const sfx={ok:()=>{beep(660,.1,"triangle");setTimeout(()=>beep(990,.14,"triangle
 let st=load("td_st",{});st.e=st.e||0;st.stick=st.stick||[];
 const GOAL=2,TH=[0,30,120,300,600,1000],NAMES=["神秘的蛋","幼崽","少年","守护兽","灵兽","传说"],PETS=["🦊","🐲","🦉","🐼","🦄","🐯"],STICKS="🏅🏆👑💎🌟🔮🎯🧭🪄🎪🚀🌈🍀🎁🧩🪁🎠🎡🎏🎖".match(/\p{Extended_Pictographic}/gu);
 function petStage(){let s=0;TH.forEach((t,i)=>{if(st.e>=t)s=i});return s}
-function day(){const f=t=>t.getFullYear()+"-"+(t.getMonth()+1)+"-"+t.getDate(),now=new Date(),k=f(now),d=st.day||(st.day={k:"",n:0,streak:0});
-  if(d.k!==k){if(!(d.k===f(new Date(now-864e5))&&d.n>=GOAL))d.streak=0;d.k=k;d.n=0}return d}
+function day(){const f=t=>t.getFullYear()+"-"+(t.getMonth()+1)+"-"+t.getDate(),now=new Date(),k=f(now),d=st.day||(st.day={k:"",n:0,ok:0,mc:0,streak:0});
+  if(d.k!==k){if(!(d.k===f(new Date(now-864e5))&&d.n>=GOAL))d.streak=0;d.k=k;d.n=0;d.ok=0;d.mc=0;d.g1=0;d.g2=0;d.g3=0}d.ok=d.ok||0;d.mc=d.mc||0;return d}
 function newStick(){const r=STICKS.filter(x=>!st.stick.includes(x));if(!r.length)return "";const k=r[Math.random()*r.length|0];st.stick.push(k);return k}
 function renderPet(){
   const s=petStage(),d=day(),nx=TH[s+1],lo=TH[s],due=dueWords().length;if(s>0&&!st.pet)st.pet=PETS[Math.random()*PETS.length|0];
   const need=s>=4?2:3,cnt=1+Math.floor(s/2);
-  const done=d.n>=GOAL,say=done?"吃饱了，今天的任务完成啦，明天见！":due>=4?"有 "+due+" 个词到时间复习了，复习题我最爱吃":s?"每答对 "+need+" 题我就会上阵助战（打 "+cnt+" 怪+全屏减速）！":"答对单词攒够 30 点能量，我就孵出来陪你打怪";
+  const done=d.n>=GOAL&&d.ok>=15&&d.mc>=5,say=done?"今天的目标全达成啦，明天继续保持连胜！":due>=4?"有 "+due+" 个词到时间复习了，复习题我最爱吃":s?"每答对 "+need+" 题我就会上阵助战（打 "+cnt+" 怪+全屏减速）！":"答对单词攒够 30 点能量，我就孵出来陪你打怪";
+  const gRow=(ok,txt)=>`<span style="padding:3px 8px;border-radius:8px;font-size:12px;background:${ok?"rgba(95,224,183,.18)":"var(--night)"};color:${ok?"var(--mint)":"var(--dim)"};border:1px solid ${ok?"var(--mint)":"var(--line)"}">${ok?"✔ ":""}${txt}</span>`;
   $("pet").innerHTML=`<div class="card" style="flex-direction:column;align-items:stretch;gap:8px"><div style="display:flex;align-items:center;gap:12px"><button id="petAva" title="点我摸摸头" style="font-size:${40+s*7}px;line-height:1.1;min-width:76px;text-align:center;transition:transform .15s">${s?st.pet:"🥚"}</button><div style="flex:1"><div class="nm" style="display:flex;align-items:center;gap:8px"><span>词灯伙伴 · ${NAMES[s]}</span>${s?`<button class="btn ghost small" id="petSwitch" style="padding:2px 8px;font-size:12px">换伙伴</button>`:""}</div><div class="meta">能量 ${st.e}${nx?"/"+nx:"（满级）"} · 开局 +${s*10} 金币、+${s} 条命</div><div class="bar"><i style="background:var(--lamp);width:${nx?(st.e-lo)/(nx-lo)*100:100}%"></i></div></div></div>
   <div class="meta" id="petSay" style="color:var(--paper);font-size:14px">💬 ${say}</div>
-  <div class="meta">🔥 连续 ${d.streak} 天 · 今日任务 ${Math.min(d.n,GOAL)}/${GOAL} 局${done?" ✔":""} · 徽章 ${st.stick.length}/${STICKS.length} ${st.stick.join("")}</div></div>`;
+  <div class="row" style="gap:6px">${gRow(d.n>=GOAL,`打 ${Math.min(d.n,GOAL)}/${GOAL} 局`)}${gRow(d.ok>=15,`答对 ${Math.min(d.ok,15)}/15 题`)}${gRow(d.mc>=5,`连击 ${Math.min(d.mc,5)}/5 次`)}</div>
+  <div class="meta">🔥 连续 ${d.streak} 天（连胜奖励 +${20+d.streak*5} 能量） · 徽章 ${st.stick.length}/${STICKS.length} ${st.stick.join("")}</div></div>`;
   $("petAva").onclick=()=>{const el=$("petAva");el.style.transform="scale(1.2)";setTimeout(()=>el.style.transform="",150);sfx.ok();
     if(d.petTap!==d.k){d.petTap=d.k;st.e+=3;saveAll();renderPet();$("petSay").textContent="💬 "+(s?st.pet+" 开心得转圈圈！每日摸头 +3 能量":"🥚 蛋壳晃了晃！每日摸头 +3 能量")}
     else $("petSay").textContent="💬 "+(s?st.pet+" 蹭了蹭你的手心，准备上阵！":"🥚 蛋里面暖呼呼的，快去答题孵化吧！")};
@@ -413,7 +415,8 @@ $("ans").addEventListener("click",e=>{
 });
 function resolve(good){
   G.lock=true;const it=G.cur,w=it.w,me=G;
-  if(good){G.right++;G.combo++;const pitch=Math.min(1.5,1+G.combo*0.06);beep(660*pitch,.1,"triangle");setTimeout(()=>beep(990*pitch,.14,"triangle"),80);
+  if(good){G.right++;G.combo++;const d=day();d.ok++;if(G.combo>d.mc)d.mc=G.combo;if(d.ok>=15&&!d.g2){d.g2=1;st.e+=10;G.gain+=10}if(d.mc>=5&&!d.g3){d.g3=1;st.e+=10;G.gain+=10}
+    const pitch=Math.min(1.5,1+G.combo*0.06);beep(660*pitch,.1,"triangle");setTimeout(()=>beep(990*pitch,.14,"triangle"),80);
     st.e+=1+G.type;G.gain+=1+G.type;const base=[5,6,7,12][G.type],bonus=G.combo>=3?Math.min(10,G.combo):0,gain=base+bonus;G.coins+=gain;
     G.ult=Math.min(100,G.ult+20+(G.combo>=3?5:0));
     it.lvl=Math.min(3,it.lvl+1);it.due=G.qn+[3,4,6,9][it.lvl];bolt(40+G.wi*12);
