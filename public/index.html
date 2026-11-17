@@ -431,7 +431,7 @@ function resolve(good){
 function castUlt(){
   if(!G||G.phase!=="play"||G.ult<100)return;
   G.ult=0;G.flash=.45;
-  G.en.forEach(e=>{if(e.dead)return;const p=posAt(e.d);e.slow=Math.max(e.slow,3);G.shots.push({x1:p[0],y1:0,x2:p[0],y2:p[1],t:.4,col:"#ffc24a",w:6});hit(e,e.max*.6,true)});
+  G.en.forEach(e=>{if(e.dead)return;const p=posAt(e.d);e.slow=Math.max(e.slow,3);G.shots.push({x1:p[0],y1:0,x2:p[0],y2:p[1],t:.4,col:"#ffc24a",w:6});hit(e,e.max*.3,true)});
   G.fl.push({x:W/2,y:H*.4,s:"🌟 词灯圣光！全屏斩杀+冰冻",t:1.6});
   [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.18,"triangle",.08),i*70));
   hud();
@@ -451,7 +451,7 @@ function hit(e,d,byBolt){if(byBolt)e.hp-=d;else{const x=Math.min(d,Math.max(0,e.
 /* ---- 战场 ---- */
 function tick(dt){
   if(G.phase!=="play")return;
-  if(G.left>0){G.spT-=dt;if(G.spT<=0){const ws=G.waves[G.wi],hp=30+G.wi*20;const mi=G.items.filter(i=>G.missed.has(i.w.en)||(mem[i.w.en]&&mem[i.w.en].weak>0)),w=mi.length&&Math.random()<.5?mi[Math.random()*mi.length|0].w:ws[G.left%ws.length];G.en.push({d:0,hp,max:hp,slow:0,w});G.left--;G.spT=1.7}}
+  if(G.left>0){G.spT-=dt;if(G.spT<=0){const ws=G.waves[G.wi],hp=60+G.wi*35;const mi=G.items.filter(i=>G.missed.has(i.w.en)||(mem[i.w.en]&&mem[i.w.en].weak>0)),w=mi.length&&Math.random()<.5?mi[Math.random()*mi.length|0].w:ws[G.left%ws.length];G.en.push({d:0,hp,max:hp,slow:0,w});G.left--;G.spT=1.7}}
   const spd=(1/42)*(1+G.wi*.05);
   for(const e of G.en){e.slow=Math.max(0,e.slow-dt);if(e.burn>0){e.burn-=dt;hit(e,e.burnD*dt)}if(e.poi>0){e.poi-=dt;hit(e,e.poiD*dt)}e.d+=spd*(e.slow>0?.5:1)*dt;if(e.d>=1&&!e.dead){e.dead=true;G.lives--;sfx.bad();G.missed.add(e.w.en);G.fl.push({x:W/2,y:H*.88,s:"漏掉了："+e.w.en+" = "+e.w.zh.split(/[，；,;（]/)[0],t:2.5});hud()}}
   G.tw.forEach((t,i)=>{if(!t)return;t.cd-=dt;if(t.cd>0)return;const T=TW[t.type],x=SLOTS[i][0]*W,y=SLOTS[i][1]*H,R=T.range*W*(1+.12*(t.lvl-1));
