@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>词灯塔防</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 和《词灯勇者》同一个夜色世界；竖屏三段：状态栏、战场画布、答题面板 */
+  --night:#17143a; --night2:#262057; --panel:#322a6e; --line:#4a4196;
+  --lamp:#ffc24a; --mint:#5fe0b7; --coral:#ff6f6f; --paper:#fff6e0; --ink:#241d4d; --dim:#b6aee6;
+  --en:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  --zh:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:radial-gradient(120% 70% at 50% 0,var(--night2),var(--night) 70%);color:var(--paper);font-family:var(--zh);font-size:16px;overflow:hidden}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation}
+button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
+.en{font-family:var(--en)}
+#app{height:100%;max-width:520px;margin:0 auto;position:relative}
+.screen{display:none;height:100%;flex-direction:column}.screen.on{display:flex}
+.scroll{overflow-y:auto;flex:1;padding:16px 16px 28px;display:flex;flex-direction:column;gap:14px}
+h1{font-size:28px;margin:0}h2{font-size:19px;margin:0}
+.sub{color:var(--dim);font-size:14px;line-height:1.6;margin:0}
+.btn{background:var(--lamp);color:var(--ink);font-weight:700;border-radius:14px;padding:11px 18px;box-shadow:0 4px 0 #c98a1c}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 #c98a1c}
+.btn.ghost{background:var(--panel);color:var(--paper);box-shadow:0 4px 0 #1d1850;border:1px solid var(--line)}
+.btn.small{padding:7px 12px;font-size:14px;border-radius:11px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.top{display:flex;align-items:center;gap:10px;padding:12px 16px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;align-items:center;gap:12px}
+.card .ico{font-size:30px}.card .nm{font-weight:700;font-size:18px}.card .meta{color:var(--dim);font-size:13px}
+.card.due{border-color:var(--lamp)}
+.bar{height:8px;border-radius:9px;background:var(--night);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--mint)}
+/* 游戏 */
+.hud{display:flex;align-items:center;gap:12px;padding:8px 12px;font-size:15px;font-weight:700}
+.hud .sp{flex:1}
+#fieldWrap{flex:1;position:relative;min-height:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.build{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;align-items:center;padding:6px 12px 0;font-size:13px;color:var(--dim)}
+.build button{background:var(--panel);border:2px solid var(--line);border-radius:11px;padding:4px 7px;font-size:14px;color:var(--paper)}
+.build button.on{border-color:var(--lamp);background:var(--night)}
+.quiz{padding:8px 12px 12px;display:flex;flex-direction:column;gap:8px;min-height:212px}
+.q{text-align:center;min-height:54px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.q .big{font-size:30px;font-weight:800;line-height:1.1}
+.q .zhq{font-size:20px;font-weight:700}
+.q .tag{font-size:12px;color:var(--dim);width:100%}
+.spk{background:var(--lamp);border-radius:50%;width:46px;height:46px;font-size:22px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.opts button{background:var(--paper);color:var(--ink);border-radius:12px;padding:9px 8px;font-size:15px;font-weight:600;line-height:1.3;min-height:48px;word-break:break-word}
+.opts button.en{font-size:20px;font-weight:700}
+.opts button.good{background:var(--mint)}.opts button.bad{background:var(--coral);color:#fff}
+.slots{font-family:var(--en);font-size:28px;font-weight:800;letter-spacing:4px}
+.slots .gap{color:var(--line)}.slots .ok{color:var(--mint)}
+.tiles{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.tiles button{width:46px;height:46px;border-radius:12px;background:var(--paper);color:var(--ink);font-family:var(--en);font-size:24px;font-weight:800}
+.tiles button:disabled{opacity:.25}
+.fb{text-align:center;font-size:16px;min-height:24px}
+.over{position:absolute;inset:0;background:rgba(23,20,58,.95);z-index:5;display:flex;flex-direction:column;gap:12px;padding:18px;overflow-y:auto}
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.w{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:left;display:flex;flex-direction:column;gap:2px}
+.w .en{font-weight:800;font-size:22px;color:var(--lamp)}.w span:last-child{font-size:14px}
+label{font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:5px}
+select,textarea,input{font:inherit;background:var(--night);color:var(--paper);border:1px solid var(--line);border-radius:11px;padding:9px 11px;width:100%}
+textarea{min-height:220px;line-height:1.6}
+.note{font-size:13px;color:var(--mint);min-height:18px}
+</style>
+</head>
+<body>
+<div id="app">
+<section class="screen on" id="home">
+  <div class="scroll">
+    <div><h1>词灯塔防</h1>
+    <p class="sub">迷雾怪要吹灭词灯。塔最多打掉怪物一半的血，另一半要答对它身上的单词、用闪电打掉。每波先记 4 个新词，答错的词马上再考。</p></div>
+    <div id="pet"></div>
+    <div id="chapters" style="display:flex;flex-direction:column;gap:12px"></div>
+    <div class="row"><button class="btn ghost small" id="toBank">单词库</button></div>
+  </div>
+</section>
+
+<section class="screen" id="game">
+  <div class="hud"><button class="btn ghost small" id="quit">← 退出</button><span id="hLives"></span><span id="hCoins"></span><span class="sp"></span><span id="hWave"></span></div>
+  <div id="fieldWrap"><canvas id="cv"></canvas><div class="over" id="over" hidden></div></div>
+  <div class="build"><button data-t="a" class="on">🏹30</button><button data-t="f">❄️40</button><button data-t="r">🔥50</button><button data-t="l">⚡60</button><button data-t="b">🎈60</button><button data-t="p">☠️50</button></div>
+  <div class="quiz"><div class="q" id="q"></div><div id="ans"></div><div class="fb" id="fb"></div></div>
+</section>
+
+<section class="screen" id="bank">
+  <div class="top"><button class="btn ghost small" id="bkBack">← 返回</button><h2>单词库</h2></div>
+  <div class="scroll">
+    <label for="bkCh">章节<select id="bkCh"></select></label>
+    <label for="bkName">章节名字<input id="bkName"></label>
+    <label for="bkWords">单词（一行一个：英文 = 中文）<textarea id="bkWords" spellcheck="false"></textarea></label>
+    <div class="row"><button class="btn" id="bkSave">保存本章</button><button class="btn ghost" id="bkNew">新增章节</button></div>
+    <div class="note" id="bkNote"></div>
+    <h2>从《词灯勇者》搬单词库</h2>
+    <label for="bkJson">把那边「生成备份」的文字粘贴到这里<textarea id="bkJson" style="min-height:80px;font-size:12px" spellcheck="false"></textarea></label>
+    <div class="row"><button class="btn ghost small" id="bkImport">导入</button></div>
+  </div>
+</section>
+</div>
+<script>
+"use strict";
+const DEFAULTS=[
+["u1","Unit 1 运动山谷","⛰️",`sport=体育运动
+jump=跳
+high=高高地
+far=远
+ping-pong=乒乓球运动
+volleyball=排球（运动）
+across=从一边到另一边；穿过，越过
+hope=希望
+lose=失去
+because=因为
+because of sb / sth=因为某人/某事物
+cancer=癌（症）
+other=别的，另外的，其他的
+money=钱
+hard=困难的
+kind=亲切的；友好的；善良的
+keep=持续；继续
+month=一个月
+ill=生病的
+anymore=（不）再
+year=年；年度
+remember=纪念；记住
+fail=失败
+give=给予
+give up=放弃
+never=决不，永不
+try=努力；尝试
+try your best=尽最大努力
+star=明星，最出色者
+ability=才能；能力
+player=运动员，选手，球员`],
+["u2","Unit 2 整洁小屋","🏠",`phew=啊，哟，唉
+wash=洗
+dish=盘子，碟子
+feed=喂养，给……食物
+sweep=扫，打扫，清扫
+floor=地板，地面
+rubbish=垃圾
+chore=家庭杂务
+to-do list=待办清单
+Mr=先生
+may=可以（表示允许某人做某事）
+outside=在室外，在外面
+tidy=整理，收拾；整洁的，整齐的
+easy=容易的
+clean=（把……）弄干净，（使）清洁
+woof=汪汪（形容狗吠声）
+job=任务，事情
+Good job!=干得好！真不错！
+dirty=脏的
+desk=书桌，写字台
+wall=墙
+again=又，再一次
+also=除此之外，还
+sunshine=阳光
+must=应该
+sometimes=有时
+feel=感受到，觉得
+tired=疲惫的，累的
+helpful=乐于助人的
+warm=（使）温暖起来
+warm up=（使）变暖
+house=房屋，房子
+water=给……浇水
+yard=庭院
+helper=帮手；助手
+pick=采，摘
+pig=猪
+cow=奶牛
+cut=修剪
+grass=草地；草，青草`],
+["u3","Unit 3 天气高塔","🌦️",`weather=天气
+sunny=阳光充足的
+cloud=云
+by=经过
+cloudy=多云的，阴天的
+wind=风
+blow=吹，刮
+windy=风大的；多风的
+rain=雨
+rainy=多雨的
+snow=雪
+snowstorm=雪暴，暴风雪
+cold=冷的，寒冷的
+coat=外套
+report=报道
+TV=电视
+turn=转身；转动
+turn on=打开
+happen=发生
+wait=等，等候
+later=之后
+quite=非常，十分
+real=真的，真正的
+diary=日记
+teacher=教师，老师`],
+["u4","Unit 4 四季森林","🍂",`season=季节
+spring=春天，春季
+summer=夏天，夏季
+autumn=秋天，秋季
+winter=冬天，冬季
+all year round=全年
+round=循环地，周而复始地
+equator=赤道
+beach=海滩，沙滩
+sea=海，海洋
+ice cream=冰激凌，雪糕
+enjoy=享受……的乐趣
+favourite=最喜欢的
+fly=放飞
+birthday=生日
+December=十二月
+wonderful=令人惊叹的，奇妙的
+taste=有……的味道
+join=参与，加入
+or=或者
+any=任何一个`],
+["u5","Unit 5 旅途大道","🚂",`bus=公交车，公共汽车
+car=汽车
+train=火车，列车
+city=城市
+town=镇，城镇
+ship=大船
+plane=飞机
+sky=天，天空
+place=地方，地点
+near=（距离）近的
+travel=旅行
+way=方式
+picnic=野餐
+minute=分钟
+wear=穿；戴
+live=住，居住
+away=离开，相距
+truck=货车，卡车
+bamboo=竹，竹子
+bike=自行车
+ring=（钟、铃）鸣响
+beep=（使）（汽车喇叭）鸣响
+subway=地铁
+whoosh=（呼呼地）飞快移动
+tram=有轨电车
+chug=（汽车、火车等）突突地缓慢前进`],
+["u6","Unit 6 迷雾之城","🏙️",`wheel=车轮
+left=向左，朝左
+straight=笔直地
+library=图书室；图书馆
+centre=中心
+cinema=电影院
+hospital=医院
+supermarket=超市
+museum=博物馆，博物院
+tomorrow=（在）明天
+woman=成年女子，妇女
+wish=愿望
+step=步；一步（的距离）
+own=自己的
+on one's own=独立地
+walk=走，行走
+cross=横穿
+careful=谨慎的
+be careful=当心，小心
+girl=女孩；女儿
+underground=在地（面）下
+aunt=姑母；姨母`],
+["plays","Plays 庆典剧场","🎭",`take off=脱下，脱掉（衣物）
+start=开始
+shine=发光，发亮
+win=获胜，赢
+lovely=可爱的
+cry=哭，哭泣
+I'm fine.=我很好。
+restaurant=饭店，餐馆
+duck=鸭
+at last=终于
+Canada=加拿大
+Harbin=哈尔滨
+Singapore=新加坡
+Qatar=卡塔尔`]];
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function parseWords(t){const seen=new Set(),out=[];String(t).split(/\n/).forEach(l=>{l=l.trim();let i=l.indexOf("=");if(i<0){const m=l.match(/[㐀-鿿（]/);i=m?m.index:-1;if(i<0)return;l=l.slice(0,i)+"="+l.slice(i);}const en=l.slice(0,i).trim(),zh=l.slice(i+1).trim();if(en&&zh&&!seen.has(en.toLowerCase())){seen.add(en.toLowerCase());out.push({en,zh})}});return out}
+let bank=load("td_bank",null);if(!bank||!Array.isArray(bank.chapters)||!bank.chapters.length)bank={chapters:DEFAULTS.map(d=>({id:d[0],name:d[1],icon:d[2],words:parseWords(d[3])}))};
+let mem=load("td_mem",{});
+const saveAll=()=>{save("td_bank",bank);save("td_mem",mem);save("td_st",st)};
+const DAYS=[1,1,3,7,14,30],DAY=864e5;
+const boxOf=w=>(mem[w.en]&&mem[w.en].box)||0;
+const allWords=()=>bank.chapters.flatMap(c=>c.words);
+const dueWords=()=>allWords().filter(w=>mem[w.en]&&mem[w.en].next<=Date.now());
+const getCh=id=>id==="_due"?{id:"_due",name:"今日复习",icon:"⏰",words:dueWords()}:bank.chapters.find(c=>c.id===id);
+
+/* 声音 */
+let claudeTTS=null,actx=null,enVoice=null;
+try{if(window.claude&&window.claude.use)window.claude.use("tts").then(t=>{claudeTTS=t}).catch(()=>{})}catch(e){}
+function pickVoice(){try{const vs=speechSynthesis.getVoices();enVoice=vs.find(v=>/en[-_]US/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;return vs.length}catch(e){return 0}}
+try{if("speechSynthesis" in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}}catch(e){}
+function speak(text){
+  const t=text.replace(/\bsb\s*\/\s*sth\b/,"somebody or something").replace(/^Mr$/,"Mister"),has=("speechSynthesis" in window);
+  if(claudeTTS&&(!has||!pickVoice())){claudeTTS.speak(t,{language:"en",rate:.85}).catch(()=>{});return}
+  if(has){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="en-US";u.rate=.8;if(enVoice)u.voice=enVoice;speechSynthesis.speak(u)}catch(e){}}
+}
+function beep(f,d,type,vol){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.type=type||"sine";o.frequency.value=f;g.gain.value=vol||.07;g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+d);o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+d)}catch(e){}}
+const sfx={ok:()=>{beep(660,.1,"triangle");setTimeout(()=>beep(990,.14,"triangle"),80)},bad:()=>beep(150,.25,"sawtooth",.05),build:()=>beep(440,.12,"square",.04),win:()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.18,"triangle"),i*130))};
+
+/* 养成：答对得能量，伙伴长大后开局更强；每天 2 局是一个完整任务 */
+let st=load("td_st",{});st.e=st.e||0;st.stick=st.stick||[];
+const GOAL=2,TH=[0,30,120,300,600,1000],NAMES=["神秘的蛋","幼崽","少年","守护兽","灵兽","传说"],PETS=["🦊","🐲","🦉","🐼","🦄","🐯"],STICKS="🏅🏆👑💎🌟🔮🎯🧭🪄🎪🚀🌈🍀🎁🧩🪁🎠🎡🎏🎖".match(/\p{Extended_Pictographic}/gu);
+function petStage(){let s=0;TH.forEach((t,i)=>{if(st.e>=t)s=i});return s}
+function day(){const f=t=>t.getFullYear()+"-"+(t.getMonth()+1)+"-"+t.getDate(),now=new Date(),k=f(now),d=st.day||(st.day={k:"",n:0,streak:0});
+  if(d.k!==k){if(!(d.k===f(new Date(now-864e5))&&d.n>=GOAL))d.streak=0;d.k=k;d.n=0}return d}
+function newStick(){const r=STICKS.filter(x=>!st.stick.includes(x));if(!r.length)return "";const k=r[Math.random()*r.length|0];st.stick.push(k);return k}
+function renderPet(){
+  const s=petStage(),d=day(),nx=TH[s+1],lo=TH[s],due=dueWords().length;if(s>0&&!st.pet)st.pet=PETS[Math.random()*PETS.length|0];
+  const done=d.n>=GOAL,say=done?"吃饱了，今天的任务完成啦，明天见！":due>=4?"有 "+due+" 个词到时间复习了，复习题我最爱吃":s?"打一局喂我能量吧，答得越难我长得越快":"答对单词攻够 30 点能量，我就孵出来";
+  $("pet").innerHTML=`<div class="card" style="flex-direction:column;align-items:stretch;gap:8px"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:${40+s*7}px;line-height:1.1;min-width:76px;text-align:center">${s?st.pet:"🥚"}</div><div style="flex:1"><div class="nm">词灯伙伴 · ${NAMES[s]}</div><div class="meta">能量 ${st.e}${nx?"/"+nx:"（满级）"} · 开局 +${s*10} 金币、+${s} 条命</div><div class="bar"><i style="background:var(--lamp);width:${nx?(st.e-lo)/(nx-lo)*100:100}%"></i></div></div></div>
+  <div class="meta" style="color:var(--paper);font-size:14px">💬 ${say}</div>
+  <div class="meta">🔥 连续 ${d.streak} 天 · 今日任务 ${Math.min(d.n,GOAL)}/${GOAL} 局${done?" ✔":""} · 徽章 ${st.stick.length}/${STICKS.length} ${st.stick.join("")}</div></div>`;
+}
+/* 首页 */
+function show(id){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id===id));if(id!=="game"&&G)G.run=false;if(id==="home")renderHome();if(id==="bank")renderBank()}
+function renderHome(){renderPet();
+  const list=[...bank.chapters],due=dueWords();if(due.length>=4)list.unshift(getCh("_due"));
+  $("chapters").innerHTML=list.map(c=>{const n=c.words.length,ok=c.words.filter(w=>boxOf(w)>=3).length;
+    return `<div class="card ${c.id==="_due"?"due":""}"><span class="ico">${c.icon||"🏮"}</span><div style="flex:1"><div class="nm">${esc(c.name)}</div><div class="meta">${c.id==="_due"?n+" 个词到了该复习的时间":n+" 个单词 · 已记牢 "+ok+" · 不会的 "+c.words.filter(w=>mem[w.en]&&mem[w.en].weak>0).length}</div>${c.id==="_due"?"":`<div class="bar"><i style="width:${n?ok/n*100:0}%"></i></div>`}</div><button class="btn small" data-ch="${esc(c.id)}">开战</button></div>`}).join("");
+}
+$("chapters").addEventListener("click",e=>{const b=e.target.closest("[data-ch]");if(b)startRun(b.dataset.ch)});
+$("toBank").onclick=()=>show("bank");$("bkBack").onclick=()=>show("home");
+
+/* ===== 游戏 ===== */
+let G=null,W=0,H=0,P=[],SEG=[],LEN=0,buildType="a";
+const cv=$("cv"),ctx=cv.getContext("2d");
+const PTS=[[.12,0],[.12,.2],[.88,.2],[.88,.5],[.12,.5],[.12,.8],[.88,.8],[.88,.95]];
+const SLOTS=[[.5,.06],[.35,.35],[.65,.35],[.35,.65],[.65,.65],[.5,.94]];
+const TW={a:{ic:"🏹",cost:30,dmg:10,rate:.6,range:.32,col:"#ffc24a",desc:"🏹 弓箭塔：射得快，打一个"},
+ f:{ic:"❄️",cost:40,dmg:4,rate:.9,range:.28,col:"#8fd8ff",desc:"❄️ 冰冻塔：让怪物变慢"},
+ r:{ic:"🔥",cost:50,dmg:4,rate:.8,range:.28,col:"#ff8a3c",desc:"🔥 火焰塔：点着怪物，持续燃烧 3 秒"},
+ l:{ic:"⚡",cost:60,dmg:9,rate:1,range:.3,col:"#fff27a",desc:"⚡ 雷电塔：闪电会跳到旁边的怪物"},
+ b:{ic:"🎈",cost:60,dmg:2,rate:.7,range:.28,col:"#ff9ad5",desc:"🎈 撑爆塔：把怪物越吹越大，第 4 下撑爆并炸到周围"},
+ p:{ic:"☠️",cost:50,dmg:2,rate:1,range:.3,col:"#7be36b",desc:"☠️ 毒液塔：怪物中毒变绿，6 秒内一直掉血"}};
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;W=r.width;H=r.height;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);
+  P=PTS.map(p=>[p[0]*W,p[1]*H]);SEG=[];LEN=0;for(let i=1;i<P.length;i++){const l=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);SEG.push(l);LEN+=l}}
+window.addEventListener("resize",()=>{if(G&&G.run)resize()});
+function posAt(f){let d=f*LEN;for(let i=0;i<SEG.length;i++){if(d<=SEG[i]){const t=d/SEG[i];return [P[i][0]+(P[i+1][0]-P[i][0])*t,P[i][1]+(P[i+1][1]-P[i][1])*t]}d-=SEG[i]}return P[P.length-1]}
+const letters=s=>(s.match(/[A-Za-z]/g)||[]).length;
+function startRun(id){
+  const ch=getCh(id);if(!ch||ch.words.length<2)return;
+  let ws=ch.words.map(w=>({w,k:boxOf(w)-((mem[w.en]&&mem[w.en].weak)||0)*3+Math.random()*.9})).sort((a,b)=>a.k-b.k).slice(0,24).map(x=>x.w);
+  if(id!=="_due"){const o=ch.words;ws.sort((a,b)=>o.indexOf(a)-o.indexOf(b))}
+  const waves=[];for(let i=0;i<ws.length;i+=4)waves.push(ws.slice(i,i+4));
+  if(waves.length>1&&waves[waves.length-1].length<2)waves[waves.length-2].push(...waves.pop());
+  G={ch,waves,wi:-1,phase:"brief",lives:10+petStage(),coins:60+petStage()*10,s0:petStage(),gain:0,en:[],tw:SLOTS.map(()=>null),shots:[],fl:[],left:0,spT:0,items:[],qn:0,cur:null,last:null,lock:false,right:0,wrong:0,missed:new Set(),run:true,pool:ws};
+  show("game");resize();$("fb").textContent="";nextWave();
+  let last=performance.now();const me=G;(function loop(now){if(!me.run||G!==me)return;const dt=Math.min(.05,(now-last)/1000);last=now;tick(dt);draw();requestAnimationFrame(loop)})(last);
+}
+function hud(){$("hLives").textContent="❤️ "+G.lives;$("hCoins").textContent="🪙 "+G.coins;$("hWave").textContent="第 "+(G.wi+1)+"/"+G.waves.length+" 波"}
+function cards(ws){return `<div class="wgrid">${ws.map(w=>`<button class="w" data-en="${esc(w.en)}"><span class="en">${esc(w.en)}</span><span>${esc(w.zh)}</span></button>`).join("")}</div>`}
+$("over").addEventListener("click",e=>{const b=e.target.closest("[data-en]");if(b)speak(b.dataset.en)});
+function nextWave(){
+  G.wi++;if(G.wi>=G.waves.length){end(true);return}
+  G.phase="brief";hud();const ws=G.waves[G.wi],O=$("over");O.hidden=false;
+  O.innerHTML=`<h2>第 ${G.wi+1} 波情报：先记住这 ${ws.length} 个词</h2><p class="sub">点卡片听发音，跟着大声读一遍。怪物身上就写着它们。</p>${cards(ws)}<button class="btn" id="go">记住了，开战！</button>`;
+  $("q").innerHTML="";$("ans").innerHTML="";
+  $("go").onclick=()=>{O.hidden=true;ws.forEach(w=>G.items.push({w,lvl:0,due:G.qn}));G.left=6+G.wi*2;G.spT=.5;G.phase="play";G.lock=false;nextQ()};
+}
+/* ---- 出题：答对升级题型并拉长间隔，答错降级并很快再考 ---- */
+function nextQ(){
+  if(!G||!G.run||G.phase!=="play")return;
+  G.qn++;G.lock=false;$("fb").textContent="";
+  const c=G.items.filter(i=>i!==G.last),due=c.filter(i=>i.due<=G.qn);
+  const fe=G.en.filter(e=>!e.dead).sort((a,b)=>b.d-a.d).map(e=>c.find(i=>i.w.en===e.w.en)).find(Boolean);
+  let it=fe||(due.length?due.sort((a,b)=>a.due-b.due||a.lvl-b.lvl)[0]:c.sort((a,b)=>a.lvl-b.lvl||a.due-b.due)[0]);
+  it=it||G.items[0];G.last=G.cur=it;
+  let t=it.lvl;if(t===3&&(letters(it.w.en)>9||letters(it.w.en)<2))t=2;G.type=t;
+  const w=it.w,Q=$("q"),A=$("ans");
+  if(t===3){G.pos=0;skip();Q.innerHTML=`<span class="tag">拼出这个单词</span><span class="zhq">${esc(w.zh)}</span>`;
+    const need=w.en.split("").filter(ch=>/[A-Za-z]/.test(ch)),extra=shuffle("aeioustnrlmd".split("").filter(x=>!w.en.toLowerCase().includes(x))).slice(0,2);
+    A.innerHTML=`<div class="slots" id="slots" style="text-align:center"></div><div class="tiles">${shuffle([...need,...extra]).map(ch=>`<button data-c="${ch}">${ch}</button>`).join("")}</div>`;slots();return}
+  if(t===0){Q.innerHTML=`<span class="tag">它是什么意思？</span><span class="big en">${esc(w.en)}</span><button class="spk" id="spk">🔊</button>`;speak(w.en)}
+  if(t===1){Q.innerHTML=`<span class="tag">听一听，是哪个单词？</span><button class="spk" id="spk">🔊</button>`;speak(w.en)}
+  if(t===2){Q.innerHTML=`<span class="tag">它的英文是？</span><span class="zhq">${esc(w.zh)}</span>`}
+  const s=$("spk");if(s)s.onclick=()=>speak(w.en);
+  const ok=x=>x.en!==w.en&&x.zh!==w.zh,ds=[];
+  for(const x of [...shuffle(G.pool.filter(ok)),...shuffle(G.ch.words.filter(ok)),...shuffle(allWords().filter(ok))]){if(ds.length>=3)break;if(!ds.some(d=>d.en===x.en||d.zh===x.zh))ds.push(x)}
+  G.opts=shuffle([w,...ds]);
+  A.innerHTML=`<div class="opts">${G.opts.map((o,i)=>`<button data-i="${i}" class="${t===0?"":"en"}">${esc(t===0?o.zh:o.en)}</button>`).join("")}</div>`;
+}
+function skip(){const en=G.cur.w.en;while(G.pos<en.length&&!/[A-Za-z]/.test(en[G.pos]))G.pos++}
+function slots(){const en=G.cur.w.en;$("slots").innerHTML=en.split("").map((ch,i)=>!/[A-Za-z]/.test(ch)?(ch===" "?"&nbsp;":esc(ch)):i<G.pos?`<span class="ok">${ch}</span>`:`<span class="gap">_</span>`).join("")}
+$("ans").addEventListener("click",e=>{
+  if(!G||G.lock||G.phase!=="play")return;
+  const o=e.target.closest(".opts button");
+  if(o){const i=+o.dataset.i,good=G.opts[i].en===G.cur.w.en;o.classList.add(good?"good":"bad");if(!good)document.querySelectorAll(".opts button").forEach((b,j)=>{if(G.opts[j].en===G.cur.w.en)b.classList.add("good")});resolve(good);return}
+  const t=e.target.closest(".tiles button");
+  if(t){const en=G.cur.w.en;if(t.dataset.c===en[G.pos]){t.disabled=true;G.pos++;skip();slots();if(G.pos>=en.length)resolve(true)}else resolve(false)}
+});
+function resolve(good){
+  G.lock=true;const it=G.cur,w=it.w,me=G;
+  if(good){G.right++;sfx.ok();st.e+=1+G.type;G.gain+=1+G.type;const gain=[5,6,7,12][G.type];G.coins+=gain;it.lvl=Math.min(3,it.lvl+1);it.due=G.qn+[3,4,6,9][it.lvl];bolt(40+G.wi*12);
+    $("fb").innerHTML=`<span style="color:var(--mint)">✔ +${gain}🪙 ⚡</span>　<b class="en">${esc(w.en)}</b> ${esc(w.zh)}`;if(G.type>=2)speak(w.en)}
+  else{G.wrong++;sfx.bad();G.missed.add(w.en);it.lvl=Math.max(0,it.lvl-1);it.due=G.qn+2;
+    $("fb").innerHTML=`<span style="color:var(--coral)">记住：</span><b class="en" style="color:var(--lamp);font-size:20px">${esc(w.en)}</b> = ${esc(w.zh)}`;speak(w.en)}
+  hud();setTimeout(()=>{if(G===me)nextQ()},good?800:2400);
+}
+function bolt(){const s=G.en.filter(x=>!x.dead).sort((a,b)=>b.d-a.d),e=s.find(x=>x.w.en===G.cur.w.en)||s[0];if(!e)return;const p=posAt(e.d);G.shots.push({x1:p[0],y1:0,x2:p[0],y2:p[1],t:.25,col:"#fff6a0",w:4});hit(e,e.max/2+.01,true)}
+function hit(e,d,byBolt){if(byBolt)e.hp-=d;else{const x=Math.min(d,Math.max(0,e.max/2-(e.td||0)));e.td=(e.td||0)+x;e.hp-=x}if(e.hp<=0&&!e.dead){e.dead=true;G.coins+=3;const p=posAt(e.d);G.fl.push({x:p[0],y:p[1],s:e.w.en+" "+e.w.zh.split(/[，；,;（]/)[0],t:1.6});hud()}}
+/* ---- 战场 ---- */
+function tick(dt){
+  if(G.phase!=="play")return;
+  if(G.left>0){G.spT-=dt;if(G.spT<=0){const ws=G.waves[G.wi],hp=30+G.wi*20;const mi=G.items.filter(i=>G.missed.has(i.w.en)||(mem[i.w.en]&&mem[i.w.en].weak>0)),w=mi.length&&Math.random()<.5?mi[Math.random()*mi.length|0].w:ws[G.left%ws.length];G.en.push({d:0,hp,max:hp,slow:0,w});G.left--;G.spT=1.7}}
+  const spd=(1/42)*(1+G.wi*.05);
+  for(const e of G.en){e.slow=Math.max(0,e.slow-dt);if(e.burn>0){e.burn-=dt;hit(e,e.burnD*dt)}if(e.poi>0){e.poi-=dt;hit(e,e.poiD*dt)}e.d+=spd*(e.slow>0?.5:1)*dt;if(e.d>=1&&!e.dead){e.dead=true;G.lives--;sfx.bad();G.missed.add(e.w.en);G.fl.push({x:W/2,y:H*.88,s:"漏掉了："+e.w.en+" = "+e.w.zh.split(/[，；,;（]/)[0],t:2.5});hud()}}
+  G.tw.forEach((t,i)=>{if(!t)return;t.cd-=dt;if(t.cd>0)return;const T=TW[t.type],x=SLOTS[i][0]*W,y=SLOTS[i][1]*H,R=T.range*W*(1+.12*(t.lvl-1));
+    let best=null;for(const e of G.en){if(e.dead)continue;const p=posAt(e.d);if(Math.hypot(p[0]-x,p[1]-y)<=R&&(!best||e.d>best.d))best=e}
+    if(best){const p=posAt(best.d);G.shots.push({x1:x,y1:y,x2:p[0],y2:p[1],t:.1,col:T.col,w:2});const k=t.type,L=t.lvl;
+      if(k==="f")best.slow=1.6;
+      if(k==="r"){best.burn=3;best.burnD=6*L}
+      if(k==="p"){best.poi=6;best.poiD=3*L}
+      if(k==="b"){best.big=(best.big||0)+1;if(best.big>=4){best.big=0;G.fl.push({x:p[0],y:p[1]-20,s:"💥 嘣！",t:1});for(const o of G.en){if(o===best||o.dead)continue;const q=posAt(o.d);if(Math.hypot(q[0]-p[0],q[1]-p[1])<W*.18)hit(o,o.max*.2*L)}hit(best,best.max)}}
+      if(k==="l"){let n=0;for(const o of G.en.slice().sort((a,b)=>b.d-a.d)){if(o===best||o.dead||n>=1+L)continue;const q=posAt(o.d);if(Math.hypot(q[0]-p[0],q[1]-p[1])<W*.3){G.shots.push({x1:p[0],y1:p[1],x2:q[0],y2:q[1],t:.15,col:T.col,w:2});hit(o,T.dmg*L*.7);n++}}}
+      hit(best,T.dmg*L);t.cd=T.rate}});
+  G.en=G.en.filter(e=>!e.dead);
+  G.shots.forEach(s=>s.t-=dt);G.shots=G.shots.filter(s=>s.t>0);G.fl.forEach(f=>{f.t-=dt;f.y-=14*dt});G.fl=G.fl.filter(f=>f.t>0);
+  if(G.lives<=0){end(false);return}
+  if(G.left<=0&&!G.en.length)nextWave();
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);ctx.lineCap="round";ctx.lineJoin="round";
+  ctx.beginPath();P.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.strokeStyle="#3a3184";ctx.lineWidth=28;ctx.stroke();ctx.strokeStyle="#4a4196";ctx.lineWidth=2;ctx.setLineDash([6,10]);ctx.stroke();ctx.setLineDash([]);
+  ctx.textAlign="center";ctx.textBaseline="middle";
+  const end=P[P.length-1];ctx.font="34px serif";ctx.fillText("🏮",end[0],end[1]-4);ctx.font="24px serif";ctx.fillText(st.pet||"🥚",end[0]-36,end[1]-2);
+  SLOTS.forEach((s,i)=>{const x=s[0]*W,y=s[1]*H,t=G.tw[i];ctx.beginPath();ctx.arc(x,y,20,0,7);ctx.fillStyle=t?"#241d4d":"#262057";ctx.fill();ctx.strokeStyle=t?TW[t.type].col:"#6a5fd0";ctx.lineWidth=2;ctx.setLineDash(t?[]:[4,4]);ctx.stroke();ctx.setLineDash([]);
+    if(t){ctx.font="22px serif";ctx.fillText(TW[t.type].ic,x,y);ctx.font="bold 10px sans-serif";ctx.fillStyle="#fff6e0";ctx.fillText(t.lvl<3?"Lv"+t.lvl+" ↑"+40*t.lvl:"Lv3",x,y+28)}
+    else{ctx.font="bold 20px sans-serif";ctx.fillStyle="#b6aee6";ctx.fillText("+",x,y)}});
+  for(const s of G.shots){ctx.strokeStyle=s.col;ctx.lineWidth=s.w;ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.stroke()}
+  for(const e of G.en){const p=posAt(e.d);ctx.font=(24+(e.big||0)*7)+"px serif";ctx.fillText(e.poi>0?"🤢":e.slow>0?"🥶":"👾",p[0],p[1]);if(e.burn>0){ctx.font="14px serif";ctx.fillText("🔥",p[0]+14,p[1]-10)}
+    ctx.fillStyle="#0008";ctx.fillRect(p[0]-16,p[1]+15,32,4);ctx.fillStyle="#5fe0b7";ctx.fillRect(p[0]-16,p[1]+15,32*Math.max(0,e.hp/e.max),4);
+    ctx.font='bold 14px "Baloo 2",sans-serif';const tw=ctx.measureText(e.w.en).width+12,lx=Math.min(W-tw/2-2,Math.max(tw/2+2,p[0]));ctx.fillStyle="#fff6e0";ctx.beginPath();ctx.roundRect?ctx.roundRect(lx-tw/2,p[1]-34,tw,18,8):ctx.rect(lx-tw/2,p[1]-34,tw,18);ctx.fill();ctx.fillStyle="#241d4d";ctx.fillText(e.w.en,lx,p[1]-24)}
+  ctx.font='bold 14px "Baloo 2",system-ui,sans-serif';for(const f of G.fl){ctx.globalAlpha=Math.min(1,f.t);ctx.fillStyle="#ffc24a";ctx.fillText(f.s,Math.min(W-70,Math.max(70,f.x)),f.y-10)}ctx.globalAlpha=1;
+}
+cv.addEventListener("click",e=>{
+  if(!G||G.phase!=="play")return;const r=cv.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+  SLOTS.forEach((s,i)=>{if(Math.hypot(s[0]*W-x,s[1]*H-y)>26)return;const t=G.tw[i];
+    if(!t){const c=TW[buildType].cost;if(G.coins>=c){G.coins-=c;G.tw[i]={type:buildType,lvl:1,cd:0};sfx.build()}else $("fb").textContent="金币不够，答题赚金币"}
+    else if(t.lvl<3){const c=40*t.lvl;if(G.coins>=c){G.coins-=c;t.lvl++;sfx.build()}else $("fb").textContent="金币不够，答题赚金币"}
+    hud()});
+});
+document.querySelector(".build").addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(!b)return;buildType=b.dataset.t;$("fb").textContent=TW[buildType].desc+"。点空位建，点塔升级";document.querySelectorAll(".build [data-t]").forEach(x=>x.classList.toggle("on",x===b))});
+function end(win){
+  G.phase="over";const now=Date.now(),weak=[];
+  G.items.forEach(it=>{const m=mem[it.w.en]||(mem[it.w.en]={box:0,next:0}),miss=G.missed.has(it.w.en);
+    if(it.lvl>=2&&!miss){m.box=Math.min(5,m.box+1);st.e+=5;G.gain+=5}else if(it.lvl<2)m.box=0;
+    if(miss||it.lvl<2)weak.push(it.w);m.weak=miss?(m.weak||0)+1:Math.max(0,(m.weak||0)-1);m.next=now+DAYS[m.box]*DAY-6*36e5});
+  if(win){st.e+=10;G.gain+=10}let extra="";const d=day();
+  if(G.right+G.wrong>=8){d.n++;if(d.n===GOAL){d.streak++;st.e+=20;G.gain+=20;const k=newStick();extra+="<br>🎁 今日任务完成，连续 "+d.streak+" 天"+(k?"，得到新徽章 "+k:"")}}
+  if(petStage()>0&&!st.pet)st.pet=PETS[Math.random()*PETS.length|0];
+  if(petStage()>G.s0)extra+="<br>🎉 伙伴长大了，变成「"+NAMES[petStage()]+"」"+st.pet+"，下一局开局更强";
+  saveAll();if(win)sfx.win();
+  const tot=G.right+G.wrong,acc=tot?Math.round(G.right/tot*100):0,O=$("over");O.hidden=false;$("q").innerHTML="";$("ans").innerHTML="";$("fb").textContent="";
+  O.innerHTML=`<h1>${win?"词灯守住了！":"词灯被吹灭了"}</h1><p class="sub" style="font-size:16px;color:var(--paper)">答了 ${tot} 题，正确率 ${acc}%。这局练了 ${G.items.length} 个词，${G.items.length-weak.length} 个已经记住，过几天会自动回到「今日复习」。</p><p class="sub" style="font-size:16px;color:var(--lamp)">伙伴获得 ${G.gain} 点能量${extra}</p>
+  <div class="row"><button class="btn" id="again">再来一局</button><button class="btn ghost" id="backHome">回首页</button></div>${weak.length?`<h2>这些词还要多看两眼</h2>${cards(weak)}`:""}`;
+  const id=G.ch.id;$("again").onclick=()=>startRun(id);$("backHome").onclick=()=>show("home");
+}
+$("quit").onclick=()=>{try{speechSynthesis.cancel()}catch(e){}show("home")};
+
+/* 单词库 */
+let bkId=null;
+function renderBank(){if(!bank.chapters.some(c=>c.id===bkId))bkId=bank.chapters[0].id;const c=getCh(bkId);
+  $("bkCh").innerHTML=bank.chapters.map(x=>`<option value="${esc(x.id)}" ${x.id===bkId?"selected":""}>${esc(x.name)}（${x.words.length}）</option>`).join("");
+  $("bkName").value=c.name;$("bkWords").value=c.words.map(w=>w.en+" = "+w.zh).join("\n")}
+$("bkCh").onchange=e=>{bkId=e.target.value;renderBank();$("bkNote").textContent=""};
+$("bkSave").onclick=()=>{const ws=parseWords($("bkWords").value);if(ws.length<2){$("bkNote").textContent="至少要 2 个单词，按「英文 = 中文」一行写一个。";return}const c=getCh(bkId);c.name=$("bkName").value.trim()||c.name;c.words=ws;saveAll();renderBank();$("bkNote").textContent="已保存，共 "+ws.length+" 个单词。"};
+$("bkNew").onclick=()=>{const c={id:"c"+Date.now().toString(36),name:"Unit "+(bank.chapters.length+1),icon:"🌈",words:[]};bank.chapters.push(c);bkId=c.id;renderBank();$("bkNote").textContent="新章节建好了，录入单词后点「保存本章」。"};
+$("bkImport").onclick=()=>{try{const d=JSON.parse($("bkJson").value),b=d.bank||d;if(!Array.isArray(b.chapters)||!b.chapters.length)throw 0;
+  bank={chapters:b.chapters.map(c=>({id:String(c.id),name:c.land?c.name+" "+c.land:String(c.name),icon:c.icon||"🏮",words:(c.words||[]).filter(w=>w&&w.en&&w.zh).map(w=>({en:String(w.en),zh:String(w.zh)}))})).filter(c=>c.words.length)};
+  if(!bank.chapters.length)throw 0;bkId=null;saveAll();renderBank();$("bkNote").textContent="导入成功。"}catch(e){$("bkNote").textContent="这段文字不是有效的备份。"}};
+renderHome();
+</script>
+</body>
+</html>
