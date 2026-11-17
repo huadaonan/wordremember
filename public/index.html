@@ -431,7 +431,7 @@ function resolve(good){
 function castUlt(){
   if(!G||G.phase!=="play"||G.ult<100)return;
   G.ult=0;G.flash=.45;
-  G.en.forEach(e=>{if(e.dead)return;const p=posAt(e.d);e.slow=Math.max(e.slow,3);G.shots.push({x1:p[0],y1:0,x2:p[0],y2:p[1],t:.4,col:"#ffc24a",w:6});hit(e,e.max*.3,true)});
+  G.en.forEach(e=>{if(e.dead)return;const p=posAt(e.d);e.slow=Math.max(e.slow,3);G.shots.push({x1:p[0],y1:0,x2:p[0],y2:p[1],t:.4,col:"#ffc24a",w:6});hit(e,e.max*.51,true)});
   G.fl.push({x:W/2,y:H*.4,s:"🌟 词灯圣光！全屏斩杀+冰冻",t:1.6});
   [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.18,"triangle",.08),i*70));
   hud();
