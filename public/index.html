@@ -324,10 +324,15 @@ function day(){const f=t=>t.getFullYear()+"-"+(t.getMonth()+1)+"-"+t.getDate(),n
 function newStick(){const r=STICKS.filter(x=>!st.stick.includes(x));if(!r.length)return "";const k=r[Math.random()*r.length|0];st.stick.push(k);return k}
 function renderPet(){
   const s=petStage(),d=day(),nx=TH[s+1],lo=TH[s],due=dueWords().length;if(s>0&&!st.pet)st.pet=PETS[Math.random()*PETS.length|0];
-  const done=d.n>=GOAL,say=done?"吃饱了，今天的任务完成啦，明天见！":due>=4?"有 "+due+" 个词到时间复习了，复习题我最爱吃":s?"打一局喂我能量吧，答得越难我长得越快":"答对单词攻够 30 点能量，我就孵出来";
-  $("pet").innerHTML=`<div class="card" style="flex-direction:column;align-items:stretch;gap:8px"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:${40+s*7}px;line-height:1.1;min-width:76px;text-align:center">${s?st.pet:"🥚"}</div><div style="flex:1"><div class="nm">词灯伙伴 · ${NAMES[s]}</div><div class="meta">能量 ${st.e}${nx?"/"+nx:"（满级）"} · 开局 +${s*10} 金币、+${s} 条命</div><div class="bar"><i style="background:var(--lamp);width:${nx?(st.e-lo)/(nx-lo)*100:100}%"></i></div></div></div>
-  <div class="meta" style="color:var(--paper);font-size:14px">💬 ${say}</div>
+  const need=s>=4?2:3,cnt=1+Math.floor(s/2);
+  const done=d.n>=GOAL,say=done?"吃饱了，今天的任务完成啦，明天见！":due>=4?"有 "+due+" 个词到时间复习了，复习题我最爱吃":s?"每答对 "+need+" 题我就会上阵助战（打 "+cnt+" 怪+全屏减速）！":"答对单词攒够 30 点能量，我就孵出来陪你打怪";
+  $("pet").innerHTML=`<div class="card" style="flex-direction:column;align-items:stretch;gap:8px"><div style="display:flex;align-items:center;gap:12px"><button id="petAva" title="点我摸摸头" style="font-size:${40+s*7}px;line-height:1.1;min-width:76px;text-align:center;transition:transform .15s">${s?st.pet:"🥚"}</button><div style="flex:1"><div class="nm" style="display:flex;align-items:center;gap:8px"><span>词灯伙伴 · ${NAMES[s]}</span>${s?`<button class="btn ghost small" id="petSwitch" style="padding:2px 8px;font-size:12px">换伙伴</button>`:""}</div><div class="meta">能量 ${st.e}${nx?"/"+nx:"（满级）"} · 开局 +${s*10} 金币、+${s} 条命</div><div class="bar"><i style="background:var(--lamp);width:${nx?(st.e-lo)/(nx-lo)*100:100}%"></i></div></div></div>
+  <div class="meta" id="petSay" style="color:var(--paper);font-size:14px">💬 ${say}</div>
   <div class="meta">🔥 连续 ${d.streak} 天 · 今日任务 ${Math.min(d.n,GOAL)}/${GOAL} 局${done?" ✔":""} · 徽章 ${st.stick.length}/${STICKS.length} ${st.stick.join("")}</div></div>`;
+  $("petAva").onclick=()=>{const el=$("petAva");el.style.transform="scale(1.2)";setTimeout(()=>el.style.transform="",150);sfx.ok();
+    if(d.petTap!==d.k){d.petTap=d.k;st.e+=3;saveAll();renderPet();$("petSay").textContent="💬 "+(s?st.pet+" 开心得转圈圈！每日摸头 +3 能量":"🥚 蛋壳晃了晃！每日摸头 +3 能量")}
+    else $("petSay").textContent="💬 "+(s?st.pet+" 蹭了蹭你的手心，准备上阵！":"🥚 蛋里面暖呼呼的，快去答题孵化吧！")};
+  if($("petSwitch"))$("petSwitch").onclick=()=>{const idx=PETS.indexOf(st.pet);st.pet=PETS[(idx+1)%PETS.length];saveAll();renderPet()};
 }
 /* 首页 */
 function show(id){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id===id));if(id!=="game"&&G)G.run=false;if(id==="home")renderHome();if(id==="bank")renderBank()}
@@ -361,7 +366,7 @@ function startRun(id){
   if(id!=="_due"){const o=ch.words;ws.sort((a,b)=>o.indexOf(a)-o.indexOf(b))}
   const waves=[];for(let i=0;i<ws.length;i+=4)waves.push(ws.slice(i,i+4));
   if(waves.length>1&&waves[waves.length-1].length<2)waves[waves.length-2].push(...waves.pop());
-  G={ch,waves,wi:-1,phase:"brief",lives:10+petStage(),coins:60+petStage()*10,s0:petStage(),gain:0,en:[],tw:SLOTS.map(()=>null),shots:[],fl:[],left:0,spT:0,items:[],qn:0,cur:null,last:null,lock:false,right:0,wrong:0,missed:new Set(),run:true,pool:ws};
+  G={ch,waves,wi:-1,phase:"brief",lives:10+petStage(),coins:60+petStage()*10,s0:petStage(),gain:0,petCharge:0,en:[],tw:SLOTS.map(()=>null),shots:[],fl:[],left:0,spT:0,items:[],qn:0,cur:null,last:null,lock:false,right:0,wrong:0,missed:new Set(),run:true,pool:ws};
   show("game");resize();$("fb").textContent="";nextWave();
   let last=performance.now();const me=G;(function loop(now){if(!me.run||G!==me)return;const dt=Math.min(.05,(now-last)/1000);last=now;tick(dt);draw();requestAnimationFrame(loop)})(last);
 }
@@ -409,10 +414,21 @@ $("ans").addEventListener("click",e=>{
 function resolve(good){
   G.lock=true;const it=G.cur,w=it.w,me=G;
   if(good){G.right++;sfx.ok();st.e+=1+G.type;G.gain+=1+G.type;const gain=[5,6,7,12][G.type];G.coins+=gain;it.lvl=Math.min(3,it.lvl+1);it.due=G.qn+[3,4,6,9][it.lvl];bolt(40+G.wi*12);
+    const s=petStage(),need=s>=4?2:3;
+    if(s>0){G.petCharge++;if(G.petCharge>=need){G.petCharge=0;petAssist(s)}}
     $("fb").innerHTML=`<span style="color:var(--mint)">✔ +${gain}🪙 ⚡</span>　<b class="en">${esc(w.en)}</b> ${esc(w.zh)}`;if(G.type>=2)speak(w.en)}
   else{G.wrong++;sfx.bad();G.missed.add(w.en);it.lvl=Math.max(0,it.lvl-1);it.due=G.qn+2;
     $("fb").innerHTML=`<span style="color:var(--coral)">记住：</span><b class="en" style="color:var(--lamp);font-size:20px">${esc(w.en)}</b> = ${esc(w.zh)}`;speak(w.en)}
   hud();setTimeout(()=>{if(G===me)nextQ()},good?800:2400);
+}
+function petAssist(s){
+  const end=P[P.length-1],px=end[0]-36,py=end[1]-2,cnt=1+Math.floor(s/2);
+  const targets=G.en.filter(x=>!x.dead).sort((a,b)=>b.d-a.d).slice(0,cnt);
+  G.en.forEach(x=>{if(!x.dead)x.slow=Math.max(x.slow,2)});
+  G.coins+=5;
+  G.fl.push({x:px,y:py-22,s:(st.pet||"🐾")+" 助战！+5🪙",t:1.4});
+  targets.forEach(e=>{const p=posAt(e.d);G.shots.push({x1:px,y1:py,x2:p[0],y2:p[1],t:.35,col:"#5fe0b7",w:4});hit(e,e.max*.35,true)});
+  [659,880,1175].forEach((f,i)=>setTimeout(()=>beep(f,.12,"triangle",.06),i*60));
 }
 function bolt(){const s=G.en.filter(x=>!x.dead).sort((a,b)=>b.d-a.d),e=s.find(x=>x.w.en===G.cur.w.en)||s[0];if(!e)return;const p=posAt(e.d);G.shots.push({x1:p[0],y1:0,x2:p[0],y2:p[1],t:.25,col:"#fff6a0",w:4});hit(e,e.max/2+.01,true)}
 function hit(e,d,byBolt){if(byBolt)e.hp-=d;else{const x=Math.min(d,Math.max(0,e.max/2-(e.td||0)));e.td=(e.td||0)+x;e.hp-=x}if(e.hp<=0&&!e.dead){e.dead=true;G.coins+=3;const p=posAt(e.d);G.fl.push({x:p[0],y:p[1],s:e.w.en+" "+e.w.zh.split(/[，；,;（]/)[0],t:1.6});hud()}}
@@ -440,7 +456,7 @@ function draw(){
   ctx.clearRect(0,0,W,H);ctx.lineCap="round";ctx.lineJoin="round";
   ctx.beginPath();P.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.strokeStyle="#3a3184";ctx.lineWidth=28;ctx.stroke();ctx.strokeStyle="#4a4196";ctx.lineWidth=2;ctx.setLineDash([6,10]);ctx.stroke();ctx.setLineDash([]);
   ctx.textAlign="center";ctx.textBaseline="middle";
-  const end=P[P.length-1];ctx.font="34px serif";ctx.fillText("🏮",end[0],end[1]-4);ctx.font="24px serif";ctx.fillText(st.pet||"🥚",end[0]-36,end[1]-2);
+  const end=P[P.length-1],ps=petStage(),bob=Math.sin(performance.now()/260)*3;ctx.font="34px serif";ctx.fillText("🏮",end[0],end[1]-4);ctx.font="24px serif";ctx.fillText(st.pet||"🥚",end[0]-36,end[1]-2+bob);if(ps>0){const need=ps>=4?2:3;ctx.font='bold 11px "Baloo 2",sans-serif';ctx.fillStyle="#5fe0b7";ctx.fillText("⚡"+G.petCharge+"/"+need,end[0]-36,end[1]+18)}
   SLOTS.forEach((s,i)=>{const x=s[0]*W,y=s[1]*H,t=G.tw[i];ctx.beginPath();ctx.arc(x,y,20,0,7);ctx.fillStyle=t?"#241d4d":"#262057";ctx.fill();ctx.strokeStyle=t?TW[t.type].col:"#6a5fd0";ctx.lineWidth=2;ctx.setLineDash(t?[]:[4,4]);ctx.stroke();ctx.setLineDash([]);
     if(t){ctx.font="22px serif";ctx.fillText(TW[t.type].ic,x,y);ctx.font="bold 10px sans-serif";ctx.fillStyle="#fff6e0";ctx.fillText(t.lvl<3?"Lv"+t.lvl+" ↑"+40*t.lvl:"Lv3",x,y+28)}
     else{ctx.font="bold 20px sans-serif";ctx.fillStyle="#b6aee6";ctx.fillText("+",x,y)}});
